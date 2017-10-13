@@ -185,6 +185,7 @@ static glm::vec3 *dev_framebuffer = NULL;
 static glm::vec3 *dev_prevframebuffer = NULL;
 
 static float * dev_depth = NULL;	// you might need this buffer when doing depth test
+static Primitive *cullingPassedPrimitives = NULL;
 
 /**
  * Kernel that writes the image to the OpenGL PBO directly.
@@ -984,6 +985,7 @@ void rasterizeSetBuffers(const tinygltf::Scene & scene) {
 	// 3. Malloc for dev_primitives
 	{
 		cudaMalloc(&dev_primitives, totalNumPrimitives * sizeof(Primitive));
+		cudaMalloc(&cullingPassedPrimitives, totalNumPrimitives * sizeof(Primitive));
 	}
 	
 
@@ -1005,6 +1007,42 @@ void rasterizeSetBuffers(const tinygltf::Scene & scene) {
 
 }
 
+
+struct backfaceCullOp
+{
+	__host__ __device__	bool operator()(const Primitive& primitive)
+	{	
+		glm::vec3 projVertices[3];
+		projVertices[0] = primitive.v[0].ProjectedPos;
+		projVertices[1] = primitive.v[1].ProjectedPos;
+		projVertices[2] = primitive.v[2].ProjectedPos;
+		
+		float result = (projVertices[1][0] - projVertices[0][0])*(projVertices[2][1] - projVertices[0][1]) - (projVertices[1][1] - projVertices[0][1])*(projVertices[2][0] - projVertices[0][0]);
+		return result >= 0.0f;		
+	};
+};
+
+__global__ void _backfaceCulling(int numPrimitives, int * primitiveCull, Primitive* primitives)
+{
+	int pid = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	if (pid >= numPrimitives)
+		return;
+
+	Primitive primitive = primitives[pid];
+
+	glm::vec3 projVertices[3];
+	projVertices[0] = primitive.v[0].ProjectedPos;
+	projVertices[1] = primitive.v[1].ProjectedPos;
+	projVertices[2] = primitive.v[2].ProjectedPos;
+
+	float result = (projVertices[1][0] - projVertices[0][0])*(projVertices[2][1] - projVertices[0][1]) - (projVertices[1][1] - projVertices[0][1])*(projVertices[2][0] - projVertices[0][0]);
+
+	if (result < 0.0f)
+		primitiveCull[pid] = 0;
+	else
+		primitiveCull[pid] = 1;
+}
 
 
 __global__ 
@@ -1195,13 +1233,7 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 	Vertices[1] = glm::vec3(primitive.v[1].pos);
 	Vertices[2] = glm::vec3(primitive.v[2].pos);
 
-#if BACKFACE_CULLING
-	
-	float result = (projVertices[1][0] - projVertices[0][0])*(projVertices[2][1] - projVertices[0][1]) - (projVertices[1][1] - projVertices[0][1])*(projVertices[2][0] - projVertices[0][0]);
-	if (result < 0.0f)
-		return;
 
-#endif
 	
 	//Create AABoundingBox
 	AABB boundingBox;
@@ -1460,6 +1492,25 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 
 		checkCUDAError("Vertex Processing and Primitive Assembly");
 	}
+	
+	int cullingPassedNumPrimitives = totalNumPrimitives;
+	thrust::device_vector<Primitive> result;
+
+#ifdef BACKFACE_CULLING
+
+	{		
+		thrust::device_vector<Primitive> dv_in(dev_primitives, dev_primitives + totalNumPrimitives);
+		thrust::device_vector<Primitive> dv_out(totalNumPrimitives);
+		
+		auto result_end = thrust::copy_if(dv_in.begin(), dv_in.end(), dv_out.begin(), backfaceCullOp());
+		thrust::device_vector<Primitive> result(dv_out.begin(), result_end);
+
+		thrust::copy(thrust::device, result.begin(), result.end(), cullingPassedPrimitives);
+		cullingPassedNumPrimitives = result.size();
+	}
+
+#endif
+
 
 #if SSAA > 1
 
@@ -1478,26 +1529,23 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 
 #endif
 	
-
-	
-	
 	
 	// TODO: rasterize
 	{
-		dim3 numThreadsPerBlock(32);
-		dim3 numBlocksForPrimitives((totalNumPrimitives + numThreadsPerBlock.x - 1) / numThreadsPerBlock.x);
+		dim3 numThreadsPerBlock(128);
+		dim3 numBlocksForPrimitives((cullingPassedNumPrimitives + numThreadsPerBlock.x - 1) / numThreadsPerBlock.x);
 
 #if SSAA > 1
 
-		_rasterizer <<< numBlocksForPrimitives, numThreadsPerBlock >> > (totalNumPrimitives, width*SSAA, height*SSAA, dev_primitives, dev_fragmentBuffer, dev_depth, MV);
+		_rasterizer <<< numBlocksForPrimitives, numThreadsPerBlock >> > (cullingPassedNumPrimitives, width*SSAA, height*SSAA, cullingPassedPrimitives, dev_fragmentBuffer, dev_depth, MV);
 
 #elif MSAA > 1
 
-		_rasterizer << < numBlocksForPrimitives, numThreadsPerBlock >> > (totalNumPrimitives, width, height, dev_primitives, dev_fragmentBuffer, dev_depth, MV);
+		_rasterizer <<< numBlocksForPrimitives, numThreadsPerBlock >>> (cullingPassedNumPrimitives, width, height, cullingPassedPrimitives, dev_fragmentBuffer, dev_depth, MV);
 
 #else
 
-		_rasterizer << < numBlocksForPrimitives, numThreadsPerBlock >> > (totalNumPrimitives, width, height, dev_primitives, dev_fragmentBuffer, dev_depth, MV);
+		_rasterizer <<< numBlocksForPrimitives, numThreadsPerBlock >>> (cullingPassedNumPrimitives, width, height, cullingPassedPrimitives, dev_fragmentBuffer, dev_depth, MV);
 
 #endif
 
@@ -1579,6 +1627,9 @@ void rasterizeFree() {
 
 	cudaFree(dev_depth);
 	dev_depth = NULL;
+
+	cudaFree(cullingPassedPrimitives);
+	cullingPassedPrimitives = NULL;
 
     checkCUDAError("rasterize Free");
 }

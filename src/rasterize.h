@@ -32,6 +32,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 
+#include <thrust/remove.h>
+#include <thrust/execution_policy.h>
+#include <thrust/device_vector.h>
+#include <thrust/device_ptr.h>
+
 namespace tinygltf{
 	class Scene;
 }
