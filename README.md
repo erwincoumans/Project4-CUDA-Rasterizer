@@ -10,5 +10,5 @@ CUDA Rasterizer
 
 ### (TODO: Your README)
 
-![](img/cover.png)
+![](img/cover.gif)
 
