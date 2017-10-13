@@ -108,6 +108,10 @@
         "file2": {
             "name": "file2",
             "uri": "duckCM.png"
+        },
+        "file3": {
+            "name": "file3",
+            "uri": "duck_normal.png"
         }
     },
     "materials": {
@@ -134,7 +138,8 @@
                     0,
                     0,
                     1
-                ]
+                ],
+                "normal": "texture_file3"
             }
         }
     },
@@ -355,6 +360,14 @@
             "internalFormat": 6408,
             "sampler": "sampler_0",
             "source": "file2",
+            "target": 3553,
+            "type": 5121
+        },
+        "texture_file3": {
+            "format": 6408,
+            "internalFormat": 6408,
+            "sampler": "sampler_0",
+            "source": "file3",
             "target": 3553,
             "type": 5121
         }

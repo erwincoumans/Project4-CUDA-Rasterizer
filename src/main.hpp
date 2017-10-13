@@ -22,10 +22,11 @@
 #include <glm/glm.hpp>
 #include <util/glslUtility.hpp>
 #include <util/utilityCore.hpp>
-
+#include <chrono>
 #include "rasterize.h"
 
 using namespace std;
+using time_point_t = std::chrono::high_resolution_clock::time_point;
 
 //-------------------------------
 //------------GL STUFF-----------
@@ -43,12 +44,14 @@ uchar4 *dptr;
 
 GLFWwindow *window;
 
+time_point_t oldTime;
+time_point_t newTime;
 //-------------------------------
 //----------CUDA STUFF-----------
 //-------------------------------
 
-int width = 800;
-int height = 800;
+int width = 1024;
+int height = 1024;
 
 //-------------------------------
 //-------------MAIN--------------
@@ -60,7 +63,7 @@ int main(int argc, char **argv);
 //---------RUNTIME STUFF---------
 //-------------------------------
 
-void runCuda();
+void runCuda(time_point_t newTime, time_point_t oldTime);
 
 #ifdef __APPLE__
 void display();

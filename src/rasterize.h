@@ -8,6 +8,26 @@
 
 #pragma once
 
+
+#define NEARPLANE 0.1f
+#define FARPLANE 1000.0f
+
+#define BACKFACE_CULLING 1
+#define PERSPECTIVE_CORRECTION 1
+
+#define SSAA 0
+#define MSAA 0
+
+#define BLINNPHONG 0
+#define PBS 1
+
+#define DEBUG_DEPTH 0
+#define DEBUG_NORMAL 0
+#define DEBUG_UV 0
+#define DEBUG_ENV 0
+
+#define LightSize 3
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>

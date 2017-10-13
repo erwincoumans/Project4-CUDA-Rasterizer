@@ -10,10 +10,11 @@
 
 #include "main.hpp"
 
+
 #define STB_IMAGE_IMPLEMENTATION
 #define TINYGLTF_LOADER_IMPLEMENTATION
 #include <util/tiny_gltf_loader.h>
-
+//#include <util/tiny_gltf.h>
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -51,8 +52,10 @@ int main(int argc, char **argv) {
 
 
     frame = 0;
-    seconds = time(NULL);
+	seconds = time(NULL);
     fpstracker = 0;
+
+	oldTime = std::chrono::high_resolution_clock::now();
 
     // Launch CUDA/GL
     if (init(scene)) {
@@ -66,9 +69,14 @@ int main(int argc, char **argv) {
 void mainLoop() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        runCuda();
 
-        time_t seconds2 = time (NULL);
+		time_t seconds2 = time(NULL);
+
+		newTime = std::chrono::high_resolution_clock::now();
+
+        runCuda(newTime, oldTime);
+
+		oldTime = newTime;
 
         if (seconds2 - seconds >= 1) {
 
@@ -99,15 +107,26 @@ void mainLoop() {
 float scale = 1.0f;
 float x_trans = 0.0f, y_trans = 0.0f, z_trans = -10.0f;
 float x_angle = 0.0f, y_angle = 0.0f;
-void runCuda() {
+bool bRotate = false;
+void runCuda(time_point_t newTime, time_point_t oldTime) {
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
     dptr = NULL;
 
+	//Rotate
+	if (bRotate)
+	{
+		std::chrono::duration<double, std::milli> duro = newTime - oldTime;
+		double dTime;
+		y_angle -= static_cast<decltype(dTime)>(duro.count()) * 0.001;
+	}
+	glm::mat4 P = glm::perspective(glm::radians(60.0f), ((float)width) / ((float)height), NEARPLANE, FARPLANE);
+
+	/*
 	glm::mat4 P = glm::frustum<float>(-scale * ((float)width) / ((float)height),
 		scale * ((float)width / (float)height),
-		-scale, scale, 1.0, 1000.0);
-
+		-scale, scale, 1.0f, FARPLANE);
+	*/
 	glm::mat4 V = glm::mat4(1.0f);
 
 	glm::mat4 M =
@@ -138,8 +157,6 @@ bool init(const tinygltf::Scene & scene) {
         return false;
     }
 
-    width = 800;
-    height = 800;
     window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
     if (!window) {
         glfwTerminate();
@@ -164,6 +181,10 @@ bool init(const tinygltf::Scene & scene) {
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
 	glfwSetCursorPosCallback(window, mouseMotionCallback);
 	glfwSetScrollCallback(window, mouseWheelCallback);
+
+
+	//Disable V_Sync
+	glfwSwapInterval(false);
 
 	{
 		std::map<std::string, std::vector<std::string> >::const_iterator it(
@@ -325,10 +346,21 @@ void errorCallback(int error, const char *description) {
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-        glfwSetWindowShouldClose(window, GL_TRUE);
-    }
+    
+	if (action == GLFW_PRESS)
+	{
+		switch (key) {
+		case GLFW_KEY_ESCAPE:
+			glfwSetWindowShouldClose(window, GL_TRUE);
+			break;
+		case GLFW_KEY_R:
+			bRotate = !bRotate;
+			break;		
+		}
+	}
 }
+
+
 
 //----------------------------
 //----- util -----------------
@@ -388,7 +420,7 @@ void mouseMotionCallback(GLFWwindow* window, double xpos, double ypos)
 	else if (mouseState == TRANSLATE)
 	{
 		//translate
-		x_trans += (float)(s_t * diffx);
+		x_trans += (float)(1 * diffx);
 		y_trans += (float)(-s_t * diffy);
 	}
 }
@@ -398,3 +430,4 @@ void mouseWheelCallback(GLFWwindow* window, double xoffset, double yoffset)
 	const double s = 1.0;	// sensitivity
 	z_trans += (float)(s * yoffset);
 }
+
