@@ -60,7 +60,7 @@ In this project,
 
 | Normal | Corrected | Bilinear | Comparision |
 | ----------- | ----------- | ----------- | ----------- |
-| ![](img/Checker.png) | ![](img/Correction.png) | ![](img/Bilinear.png) | ![](img/checker.gif) |
+| ![](img/Checker.png) | ![](img/Correction.png) | ![](img/Bilinear.png) | ![](img/Checker.gif) |
 
 
 #### Normal(Bump) mapping
@@ -86,9 +86,14 @@ In this project,
 
 #### Physically-based BRDF shading
 
-|  Roughness | Metallic | PBS | Comparision |
-| ----------- | ----------- | ----------- |  ----------- | 
-| ![](img/Roughness.png) | ![](img/Metallic.png) | ![](img/PBS_static.png) | ![](img/ShadingCMP.gif) |
+|  Diffuse |  Roughness | Metallic |
+| ----------- | ----------- | ----------- | 
+| ![](img/phong_static.png) | ![](img/Roughness.png) | ![](img/Metallic.png)  |
+
+
+|  Environment |  PBS | PBS + Bloom |
+| ----------- | ----------- | ----------- | 
+| ![](img/Env.png) | ![](img/PBS_static.png) | ![](img/Bloom_static.png)  |
 
 
 #### Environment mapping

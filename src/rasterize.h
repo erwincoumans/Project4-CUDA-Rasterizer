@@ -29,7 +29,7 @@
 #define DEBUG_ROUGHNESS 0
 #define DEBUG_METALLIC 0
 #define DEBUG_UV 0
-#define DEBUG_ENV 0
+#define DEBUG_ENV 1
 
 #define LightSize 3
 
