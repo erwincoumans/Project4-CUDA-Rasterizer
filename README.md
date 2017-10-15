@@ -20,8 +20,7 @@ CUDA Rasterizer
 * Environment Map
 * Bloom (HDR)
 
-In this project, 
-
+In this project, I have used CUDA to implement a simplified rasterized graphics pipeline, similar to the OpenGL pipeline vertex shading, primitive assembly, rasterization, fragment shading, and a framebuffer for basic features.
 
 
 ### Complete requirements
@@ -55,12 +54,18 @@ In this project,
 | ----------- | ----------- | ----------- |
 | ![](img/Vertex.png) | ![](img/CorrectVertex.png) | ![](img/VertexColor.gif) |
 
+In graphics API such as DirectX or OpenGL, persepctive correction is adjusted automatically.
+But, we need to implement it for this project, manually. I have refered to [scratchapixel's web page](http://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/perspective-correct-interpolation-vertex-attributes).
+
 
 #### Perspective correct texture coordinates & Bilinear texture filtering
 
 | Normal | Corrected | Bilinear | Comparision |
 | ----------- | ----------- | ----------- | ----------- |
 | ![](img/Checker.png) | ![](img/Correction.png) | ![](img/Bilinear.png) | ![](img/ERROR.gif) |
+
+When we try to get texture colors along UV coordinates, it will make blocky artifacts because texture's color information is consist of texel beased on integer.
+Instead of using this raw integer information, we can interpolate this texel information with float UV coordinates to remove the artifact.
 
 
 #### Normal(Bump) mapping
@@ -76,6 +81,10 @@ In this project,
 | ----------- | ----------- | 
 | ![](img/BackFace.png) | ![](img/BackfaceCulling.png) |
 
+If we don't need translucent material and use only convex polygons, we don't need to draw back-faces of our objects.
+if the result of dot product between view vector and triangle's face normal is minus value, we can assume it is back-face.
+Using thrust functions, I could use stream compaction, easily
+
 
 #### Super Sample Anti-Aliasing
 
@@ -83,30 +92,44 @@ In this project,
 | ----------- | ----------- | ----------- | 
 | ![](img/x1.png) | ![](img/x16.png) | ![](img/SSAA.gif) |
 
+I think, Super Sample Anti-Aliasing is the worst efficient AA method. 
+
 
 #### Physically-based BRDF shading
+
 
 |  Diffuse |  Roughness | Metallic |
 | ----------- | ----------- | ----------- | 
 | ![](img/phong_static.png) | ![](img/Roughness.png) | ![](img/Metallic.png)  |
+
+I added Physically-based rendering material based on cook-torrence BRDF model.
+According to its Roughness value per fragment, it decides its unique surface texture.
 
 
 |  Environment |  PBS | PBS + Bloom |
 | ----------- | ----------- | ----------- | 
 | ![](img/Env.png) | ![](img/PBS_static.png) | ![](img/Bloom_static.png)  |
 
+And, for this project, I also added Metallic value which indicates the degree how the surface is more like metal.
+So, if the metallic value is close to 1.0, it will relfect its environment more.
+
 
 #### Environment mapping
 
-![](img/Env.gif)
+|  Environment Only |  Reflection on Shield |
+| ----------- | ----------- |
+| ![](img/Env.gif) | ![](img/sheild.gif) |
 
-![](img/sheild.gif)
+If the fragment's metallic is not zero, it takes a color from enviroment map with reflection vector's direction.
 
-#### Bloom
+
+#### Bloom & Blending Stage (Post Process)
 
 |  Extract HDR Fragments | Bloom Only | PBS + Bloom |
 | ----------- | ----------- | ----------- | 
 | ![](img/hdr.gif) | ![](img/bloomonly.gif) | ![](img/final.gif) |
+
+Light Bloom (sometimes referred to as light bloom or glow) is a computer graphics effect used in video games, demos, and high dynamic range rendering (HDRR) to reproduce an imaging artifact of real-world cameras. For the first stage, I extracted bright fragments of the scene. Then, to blur image, I used Gaussian blurring method, which is called two passes (The first pass is for Horizontal Blurring and, the second pass is for Vertical Blurring). Because, for this method, it was easy to use shared memory feature to get its near fragment information per each pixel. Finally, add fragments of bloom effect to original scene fragment through Blending stage.
 
 
 
