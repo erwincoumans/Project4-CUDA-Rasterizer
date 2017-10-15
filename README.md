@@ -153,7 +153,7 @@ Finally, add fragments of bloom effect to original scene fragment through Blendi
 
 
 
-#### Perspective correct texture coordinates
+#### Pipeline stage performance
 
 
 ![](img/Pipeline.png)
