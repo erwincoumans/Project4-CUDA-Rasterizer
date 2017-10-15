@@ -158,9 +158,11 @@ Finally, add fragments of bloom effect to original scene fragment through Blendi
 
 ![](img/Pipeline.png)
 
+unit : micro seconds
+
 |  Vertex Shader | Backface Culling | Rasterize | Fragment Shader |
 | ----------- | ----------- | ----------- | ----------- |
-| 354 | 1809 | 2598 | 2832 |
+| 0.354  | 1.809 | 2.598 | 2.832 |
 
 
 
