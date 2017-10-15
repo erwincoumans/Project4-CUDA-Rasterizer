@@ -155,6 +155,10 @@ Finally, add fragments of bloom effect to original scene fragment through Blendi
 
 ![](img/Perspective.png)
 
+|  Off |  On |
+| ----------- | ----------- |
+| 142 | 140 |
+
 
 
 
@@ -162,12 +166,20 @@ Finally, add fragments of bloom effect to original scene fragment through Blendi
 
 ![](img/Bilinear_Performance.png)
 
+|  Off |  On |
+| ----------- | ----------- |
+| 140 | 68 |
+
 
 
 
 #### Backface culling
 
 ![](img/BACK_Performance.png)
+
+| Off | IF-STATEMENT | THRUST |
+| ----------- | ----------- | ----------- |
+| 122 | 141 | 57 |
 
 An interesting point is Thrust backfaceCulling makes much slower.
 
@@ -178,6 +190,10 @@ An interesting point is Thrust backfaceCulling makes much slower.
 
 ![](img/SSAA_Performance.png)
 
+| x1 | x4 | x9 | x16 |
+| ----------- | ----------- | ----------- | ----------- |
+| 141 | 36 | 15 | 9 |
+
 
 
 
@@ -185,9 +201,17 @@ An interesting point is Thrust backfaceCulling makes much slower.
 
 ![](img/Shading_Performance.png)
 
+|  Blinn-Phong |  PBS |
+| ----------- | ----------- |
+| 141 | 135 |
+
 
 
 
 #### Bloom
 
 ![](img/Bloom_Performance.png)
+
+|  Off |  On |
+| ----------- | ----------- |
+| 141 | 102 |
