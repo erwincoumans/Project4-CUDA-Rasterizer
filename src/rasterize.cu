@@ -187,6 +187,10 @@ static glm::vec3 *dev_prevframebuffer = NULL;
 static float * dev_depth = NULL;	// you might need this buffer when doing depth test
 static Primitive *cullingPassedPrimitives = NULL;
 
+static unsigned int *mutex = NULL;
+
+static glm::vec3 *renderTargetBuffer0 = NULL;
+static glm::vec3 *renderTargetBuffer1 = NULL;
 /**
  * Kernel that writes the image to the OpenGL PBO directly.
  */
@@ -252,17 +256,112 @@ __host__ __device__ glm::vec3 GGX_Spec(glm::vec3 Normal, glm::vec3 HalfVec, floa
 	return D * FV;
 }
 
+__global__ void BlendAdd(int w, int h, glm::vec3 *renderTargetbufferSrc, glm::vec3 *renderTargetbufferDst)
+{
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * w);
+
+	if (x < w && y < h)
+	{
+		renderTargetbufferDst[index] = renderTargetbufferSrc[index] + renderTargetbufferDst[index];
+	}
+}
+
+__global__ void BlendA(int w, int h, glm::vec3 *renderTargetbufferSrc, glm::vec3 *renderTargetbufferDst, float a)
+{
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * w);
+
+	if (x < w && y < h)
+	{
+		renderTargetbufferDst[index] = glm::mix( renderTargetbufferSrc[index], renderTargetbufferDst[index], a);
+	}
+}
+
+__global__ void HDR(int w, int h, glm::vec3 *framebuffer, glm::vec3 *renderTargetbuffer)
+{
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * w);
+
+	if (x < w && y < h)
+	{
+		renderTargetbuffer[index] = glm::clamp( framebuffer[index] - glm::vec3(2.0f), glm::vec3(0.0f), glm::vec3(3.0f)) * 3.0f;
+	}
+}
+
+__global__ void HorizonBlur(int w, glm::vec3 *renderTargetbufferSrc, glm::vec3 *renderTargetbufferDst)
+{
+	extern __shared__ glm::vec3 temp[];	
+
+	int widthID = threadIdx.x;
+	int index = threadIdx.x + (blockIdx.x * w);	
+
+	temp[widthID] = renderTargetbufferSrc[index];
+
+	__syncthreads();
+
+	//int KernelSize = 2;
+
+	glm::vec3 result = glm::vec3(0.0f);
+
+	result += temp[widthID]*0.2270270270f;
+	result += temp[glm::min(widthID + 1, w - 1)] * 0.1945945946f;
+	result += temp[glm::min(widthID + 3, w - 1)] * 0.1216216216f;
+	result += temp[glm::min(widthID + 5, w - 1)] * 0.0540540541f;
+	result += temp[glm::min(widthID + 7, w - 1)] * 0.0162162162f;
+		
+	result += temp[glm::max(widthID - 1, 0)] * 0.1945945946f;
+	result += temp[glm::max(widthID - 3, 0)] * 0.1216216216f;
+	result += temp[glm::max(widthID - 5, 0)] * 0.0540540541f;
+	result += temp[glm::max(widthID - 7, 0)] * 0.0162162162f;
+
+	renderTargetbufferDst[index] = result;
+}
+
+__global__ void VerticalBlur(int w, int h, glm::vec3 *renderTargetbufferSrc, glm::vec3 *renderTargetbufferDst)
+{
+	extern __shared__ glm::vec3 temp[];
+
+	int heightID = threadIdx.x;
+	int index = blockIdx.x + (heightID * w);
+
+	temp[heightID] = renderTargetbufferSrc[index];
+
+	__syncthreads();
+
+	int KernelSize = 2;
+
+	glm::vec3 result = glm::vec3(0.0f);
+
+	result += temp[heightID] * 0.2270270270f;
+	result += temp[glm::min(heightID + 1, h - 1)] * 0.1945945946f;
+	result += temp[glm::min(heightID + 3, h - 1)] * 0.1216216216f;
+	result += temp[glm::min(heightID + 5, h - 1)] * 0.0540540541f;
+	result += temp[glm::min(heightID + 7, h - 1)] * 0.0162162162f;
+
+	result += temp[glm::max(heightID - 1, 0)] * 0.1945945946f;
+	result += temp[glm::max(heightID - 3, 0)] * 0.1216216216f;
+	result += temp[glm::max(heightID - 5, 0)] * 0.0540540541f;
+	result += temp[glm::max(heightID - 7, 0)] * 0.0162162162f;
+
+	renderTargetbufferDst[index] = result;
+}
+
 
 /** 
 * Writes fragment colors to the framebuffer
 */
-__global__
-void render(int w, int h, Fragment *fragmentBuffer, glm::vec3 *framebuffer) {
+__global__ void render(int w, int h, Fragment *fragmentBuffer, glm::vec3 *framebuffer)
+{
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * w);
 
-    if (x < w && y < h) {
+    if (x < w && y < h)
+	{
         
 		Fragment thisFragment = fragmentBuffer[index];
 		glm::vec3 &resultColor = framebuffer[index];
@@ -272,8 +371,6 @@ void render(int w, int h, Fragment *fragmentBuffer, glm::vec3 *framebuffer) {
 
 		for (int i = 0; i < LightSize; i++)
 		{
-			
-
 			glm::vec3 LightVec = glm::normalize(thisFragment.lights[i].direction);
 			glm::vec3 ViewVec = glm::vec3(0.0f, 0.0f, 1.0f);//  glm::normalize(-thisFragment.eyePos);
 
@@ -291,7 +388,7 @@ void render(int w, int h, Fragment *fragmentBuffer, glm::vec3 *framebuffer) {
 
 			resultColor = getEnvTextColor(thisFragment.envTexWidth, thisFragment.envTexHeight, ReflectVec, thisFragment.dev_envTex);
 
-#elif DEBUG_DEPTH == 1 || DEBUG_NORMAL == 1 || DEBUG_UV == 1
+#elif DEBUG_DEPTH == 1 || DEBUG_NORMAL == 1 || DEBUG_UV == 1 || DEBUG_ROUGHNESS == 1 || DEBUG_METALLIC == 1
 
 			framebuffer[index] = glm::vec3(thisFragment.basicColor);
 
@@ -333,14 +430,10 @@ void render(int w, int h, Fragment *fragmentBuffer, glm::vec3 *framebuffer) {
 			glm::vec3 envColor = getEnvTextColor(thisFragment.envTexWidth, thisFragment.envTexHeight, ReflectVec, thisFragment.dev_envTex);
 			resultColor += diffuseTerm * envColor * energyConservation * Metallic;
 
-			
+			resultColor += glm::vec3(thisFragment.emissiveColor);
 #endif
 
 		}
-
-		resultColor += glm::vec3(thisFragment.emissiveColor);
-
-
     }
 }
 
@@ -363,16 +456,9 @@ void rasterizeInit(int w, int h) {
 	cudaMalloc(&dev_prevframebuffer, width*SSAA * height*SSAA * sizeof(glm::vec3));
 	cudaMemset(dev_prevframebuffer, 0, width*SSAA * height*SSAA * sizeof(glm::vec3));
 
-#elif MSAA > 1
-
-	cudaMalloc(&dev_fragmentBuffer, width * height * sizeof(Fragment));
-	cudaMemset(dev_fragmentBuffer, 0, width * height * sizeof(Fragment));
-	cudaFree(dev_depth);
-	cudaMalloc(&dev_depth, width * height * sizeof(float));
-
-	cudaFree(dev_prevframebuffer);
-	cudaMalloc(&dev_prevframebuffer, width*SSAA * height*SSAA * sizeof(glm::vec3));
-	cudaMemset(dev_prevframebuffer, 0, width*SSAA * height*SSAA * sizeof(glm::vec3));
+	cudaFree(mutex);
+	cudaMalloc(&mutex, width*SSAA * height*SSAA * sizeof(unsigned int));
+	cudaMemset(mutex, (unsigned int)0, width*SSAA * height*SSAA * sizeof(unsigned int));
 
 #else
 
@@ -381,11 +467,25 @@ void rasterizeInit(int w, int h) {
 	cudaFree(dev_depth);
 	cudaMalloc(&dev_depth, width * height * sizeof(float));
 
+	cudaMalloc(&mutex, width * height * sizeof(unsigned int));
+	cudaMemset(mutex, (unsigned int)0, width * height * sizeof(unsigned int));
+
 #endif
 	
 	cudaFree(dev_framebuffer);
 	cudaMalloc(&dev_framebuffer, width * height * sizeof(glm::vec3));
 	cudaMemset(dev_framebuffer, 0, width * height * sizeof(glm::vec3));
+
+	
+
+	cudaFree(renderTargetBuffer0);
+	cudaMalloc(&renderTargetBuffer0, width * height * sizeof(glm::vec3));
+	cudaMemset(renderTargetBuffer0, 0, width * height * sizeof(glm::vec3));
+
+	cudaFree(renderTargetBuffer1);
+	cudaMalloc(&renderTargetBuffer1, width * height * sizeof(glm::vec3));
+	cudaMemset(renderTargetBuffer1, 0, width * height * sizeof(glm::vec3));
+	
 
 	checkCUDAError("rasterizeInit");
 }
@@ -1062,7 +1162,7 @@ void _vertexTransformAndAssembly(
 		// Finally transform x and y to viewport space
 				
 		VertexOut &thisVectexOut = primitive.dev_verticesOut[vid];
-		
+
 		thisVectexOut.localPos = glm::vec4(primitive.dev_position[vid], 1.0f);
 
 		glm::vec4 projectedPos = MVP * thisVectexOut.localPos;
@@ -1083,7 +1183,8 @@ void _vertexTransformAndAssembly(
 		glm::vec4 eyePos = MV * thisVectexOut.localPos;
 		thisVectexOut.eyePos = glm::vec3(eyePos);
 		
-		thisVectexOut.vertexColor = glm::vec4(glm::abs(glm::normalize(glm::vec3(thisVectexOut.localPos))), 1.0f);
+		//thisVectexOut.vertexColor = thisVectexOut.vertexColor; 
+		//glm::vec4(glm::abs(glm::normalize(glm::vec3(thisVectexOut.localPos))), 1.0f);
 		//thisVectexOut.vertexColor = glm::vec4(1.0f);
 
 		if (primitive.dev_texcoord0 != NULL)
@@ -1159,8 +1260,22 @@ void _primitiveAssembly(int numIndices, int curPrimitiveBeginId, Primitive* dev_
 		if (primitive.primitiveMode == TINYGLTF_MODE_TRIANGLES)
 		{
 			pid = iid / (int)primitive.primitiveType;
-			dev_primitives[pid + curPrimitiveBeginId].v[iid % (int)primitive.primitiveType]	= primitive.dev_verticesOut[primitive.dev_indices[iid]];
+
+			int reminder = iid % (int)primitive.primitiveType;
+
+			dev_primitives[pid + curPrimitiveBeginId].v[reminder] = primitive.dev_verticesOut[primitive.dev_indices[iid]];
+
+			if(reminder == 0)
+				dev_primitives[pid + curPrimitiveBeginId].v[reminder].vertexColor = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+			else if (reminder == 1)
+				dev_primitives[pid + curPrimitiveBeginId].v[reminder].vertexColor = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
+			else
+				dev_primitives[pid + curPrimitiveBeginId].v[reminder].vertexColor = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+
 			dev_primitives[pid + curPrimitiveBeginId].primitiveType = primitive.primitiveType;
+
+			
+
 		}
 
 		// TODO: other primitive types (point, line)
@@ -1205,16 +1320,69 @@ __global__ void averageColor(glm::ivec2 Resolution, glm::vec3 * dev_prevframebuf
 
 		tempResult /= (float)SSAA*SSAA;	
 	
-#elif MSAA > 1
-
-	
 #endif
 
 	dev_framebuffer[resultIndex] = tempResult;
 }
 
 
-__global__ void _rasterizer(int numPrimitives, int width, int height, Primitive* primitives, Fragment* fragmentBuffer, float * depths, glm::mat4 WorldMat)
+__device__ bool fatomicMin(float *addr, float value, Fragment *fragment, Fragment tempFragment)
+{
+	float old = *addr, assumed;
+	if (old <= value) return false;
+
+	do
+	{
+		assumed = old;
+		old = atomicCAS((unsigned int*)addr, __float_as_int(assumed), __float_as_int(fminf(value, assumed)));
+	} while (old != assumed);
+
+	*fragment = tempFragment;
+
+	return true;
+}
+
+
+
+__device__ bool fatomicMinMutex(float *addr, float value, unsigned int* mutex, Fragment *fragment, Fragment tempFragment)
+{
+
+	if (value >= *addr)
+		return false;
+
+	// Loop-wait until this thread is able to execute its critical section.
+	bool isSet;
+	bool ischanged = false;
+
+
+	do {
+		isSet = (atomicCAS(mutex, 0, 1) == 0);
+
+		if (isSet)
+		{
+			// Critical section goes here.
+			// The critical section MUST be inside the wait loop;
+			// if it is afterward, a deadlock will occur.
+			if (value < *addr)
+			{
+				*addr = value;
+				*fragment = tempFragment;
+				ischanged = true;
+			}
+		}
+
+		if (isSet)
+		{
+			*mutex = 0;
+			//atomicExch(mutex, 0);
+		}
+
+	} while (!isSet);
+
+	return ischanged;
+}
+
+__global__ void _rasterizer(int numPrimitives, int width, int height, Primitive* primitives, Fragment* fragmentBuffer, float * depths, glm::mat4 WorldMat, unsigned int* mutex)
 {
 	int pid = (blockIdx.x * blockDim.x) + threadIdx.x;
 
@@ -1241,6 +1409,9 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 
 	float maxY = glm::min(boundingBox.max.y, (float)(height - 1));
 	float minY = glm::max(boundingBox.min.y, 0.0f);
+	
+	if (boundingBox.max.x < 0.0f)
+		return;
 
 	//ScanLine
 	for (int h = (int)minY; h <= (int)maxY; h++)
@@ -1272,6 +1443,8 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 			maxX = glm::min(maxX, (float)(width - 1));
 			minX = glm::max(minX, 0.0f);
 
+
+
 			if (intersected_count >= 2)
 			{			
 
@@ -1280,25 +1453,21 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 					float center_w = w + 0.5f;
 
 					glm::vec3 Barycentric = calculateBarycentricCoordinate(Vertices, glm::vec2(center_w, center_h));
-
 					int index = w + (h * width);
 					
 					float perspectiveCorrectedZ = getPerspectiveCorrectedZAtCoordinate(Barycentric, projVertices);
 
-
-						if (perspectiveCorrectedZ < depths[index])
+						if (perspectiveCorrectedZ >= NEARPLANE &&  perspectiveCorrectedZ < depths[index])
 						{
-							fatomicMin2(&depths[index], perspectiveCorrectedZ);
-							//atomicMin(&depths[index], correctedIntZ);
-
-							Fragment &thisFragment = fragmentBuffer[index];
+			
+							//Fragment &thisFragment = fragmentBuffer[index];
+							Fragment thisFragment;
 
 							glm::vec3 basicColor = glm::vec3(0.0f);
 							glm::vec3 specularColor = glm::vec3(0.0f);
 							glm::vec3 normalColor = glm::vec3(0.0f);
 							glm::vec3 emissiveColor = glm::vec3(0.0f);
 							glm::vec3 roughnessColor = glm::vec3(0.0f);
-							//glm::vec3 envColor = glm::vec3(0.0f);
 							
 							glm::vec2 UV[3];
 
@@ -1306,9 +1475,11 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 							UV[1] = primitive.v[1].texcoord0;
 							UV[2] = primitive.v[2].texcoord0;
 
-
+#if PERSPECTIVE_CORRECTION
 							glm::vec2 uvColor = getPerspectiveCorrectedTexcoordAtCoordinate(Barycentric, projVertices, UV, perspectiveCorrectedZ);
-
+#else
+							glm::vec2 uvColor = getTexcoordAtCoordinate(Barycentric, UV);
+#endif
 							//Diffuse  Map
 							if (primitive.v[0].dev_diffuseTex != NULL)
 							{
@@ -1323,7 +1494,11 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 								vertexColor[1] = glm::vec3(primitive.v[1].vertexColor);
 								vertexColor[2] = glm::vec3(primitive.v[2].vertexColor);
 
+#if PERSPECTIVE_CORRECTION
 								basicColor = getPerspectiveCorrectedVertexColorAtCoordinate(Barycentric, projVertices, vertexColor, perspectiveCorrectedZ);
+#else
+								basicColor = getVertexColorAtCoordinate(Barycentric, vertexColor);
+#endif
 							}
 
 							//Specular  Map
@@ -1362,17 +1537,12 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 								localPos[0] = glm::vec3(primitive.v[0].localPos);
 								localPos[1] = glm::vec3(primitive.v[1].localPos);
 								localPos[2] = glm::vec3(primitive.v[2].localPos);
-								
-								glm::vec3 InterNormal = getPerspectiveCorrectedNormalAtCoordinate(Barycentric, projVertices, localNormal, perspectiveCorrectedZ);
-								glm::mat4 InterTBN =  getPerspectiveCorrectedTBNAtCoordinate(UV, localPos, InterNormal);
-																
 
-								//basicColor = (glm::vec3(InterTBN[0]) + glm::vec3(1.0f)) * 0.5f;
+								glm::vec3 InterNormal = getPerspectiveCorrectedNormalAtCoordinate(Barycentric, projVertices, localNormal, perspectiveCorrectedZ);	
+								glm::mat4 InterTBN = getPerspectiveCorrectedTBNAtCoordinate(UV, localPos, InterNormal);
 
 								normalColor = getTextColor(primitive.v[0].normalTexWidth, primitive.v[0].normalTexHeight, uvColor, (unsigned char*)primitive.v[0].dev_normalTex);
-								normalColor = normalColor * 2.0f - glm::vec3(1.0f);
-								
-								//normalColor = glm::normalize(glm::vec3(WorldMat * primitive.v[0].tbn * glm::vec4(normalColor, 0.0f)));
+								normalColor = normalColor * 2.0f - glm::vec3(1.0f);								
 								normalColor = glm::normalize(glm::vec3(WorldMat * InterTBN * glm::vec4(normalColor, 0.0f)));
 							}
 							else
@@ -1382,8 +1552,11 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 								eyeNormal[0] = primitive.v[0].eyeNor;
 								eyeNormal[1] = primitive.v[1].eyeNor;
 								eyeNormal[2] = primitive.v[2].eyeNor;
-
+#if PERSPECTIVE_CORRECTION
 								normalColor = getPerspectiveCorrectedNormalAtCoordinate(Barycentric, projVertices, eyeNormal, perspectiveCorrectedZ);
+#else
+								normalColor = getNormalColorAtCoordinate(Barycentric, eyeNormal);
+#endif
 							}
 
 							//EnvMap
@@ -1394,7 +1567,7 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 								thisFragment.envTexHeight = primitive.v[0].envTexHeight;
 							}
 
-							thisFragment.lights[0].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.2f);
+							thisFragment.lights[0].color = glm::vec4(1.0f, 1.0f, 1.0f, 2.0f);
 							thisFragment.lights[0].direction = glm::normalize(glm::vec3(0.2f, 2.0f, 1.0f));
 
 							thisFragment.lights[1].color = glm::vec4(0.3f, 0.5f, 0.9f, 2.5f);
@@ -1405,12 +1578,15 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 							
 #if DEBUG_DEPTH
 							//float depthLinearization = (2.0f * NEARPLANE) / (FARPLANE + NEARPLANE - perspectiveCorrectedZ * (FARPLANE - NEARPLANE));
-
-							thisFragment.basicColor = glm::vec4(perspectiveCorrectedZ);
+							thisFragment.basicColor = glm::vec4(perspectiveCorrectedZ*NEARPLANE);
 #elif DEBUG_NORMAL							
 							thisFragment.basicColor = glm::vec4(normalColor, 1.0f);
 #elif DEBUG_UV
 							thisFragment.basicColor = glm::vec4(uvColor, 0.0f, 1.0f);
+#elif DEBUG_ROUGHNESS
+							thisFragment.basicColor = glm::vec4(roughnessColor.x);
+#elif DEBUG_METALLIC
+							thisFragment.basicColor = glm::vec4(roughnessColor.y);
 #else
 							thisFragment.basicColor = glm::vec4(basicColor, 1.0f);
 #endif
@@ -1420,9 +1596,15 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 							thisFragment.roughness = glm::clamp(roughnessColor.x, 0.05f, 1.0f);
 							thisFragment.metallic = roughnessColor.y;
 
-
 							thisFragment.emissiveColor = glm::vec4(emissiveColor, 0.0f);
 							thisFragment.texcoord0 = uvColor;
+
+#if USING_MUTEX
+							fatomicMinMutex(&depths[index], perspectiveCorrectedZ, &mutex[index], &fragmentBuffer[index], thisFragment);
+#else
+							fatomicMin(&depths[index], perspectiveCorrectedZ, &fragmentBuffer[index], thisFragment);
+							
+#endif	
 							
 						}			
 				}
@@ -1442,8 +1624,6 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 
 	dim3 blockCount2d((width*SSAA - 1) / blockSize2d.x + 1,
 		(height*SSAA - 1) / blockSize2d.y + 1);
-
-#elif MSAA > 1
 
 #else
 
@@ -1472,8 +1652,6 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 				dim3 numBlocksForIndices((p->numIndices + numThreadsPerBlock.x - 1) / numThreadsPerBlock.x);
 #if SSAA > 1
 				_vertexTransformAndAssembly <<< numBlocksForVertices, numThreadsPerBlock >>>(p->numVertices, *p, MVP, MV, MV_normal, width*SSAA, height*SSAA);
-#elif MSAA > 1
-
 #else
 				_vertexTransformAndAssembly << < numBlocksForVertices, numThreadsPerBlock >> >(p->numVertices, *p, MVP, MV, MV_normal, width, height);
 #endif
@@ -1496,7 +1674,7 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 	int cullingPassedNumPrimitives = totalNumPrimitives;
 	thrust::device_vector<Primitive> result;
 
-#ifdef BACKFACE_CULLING
+#if BACKFACE_CULLING
 
 	{		
 		thrust::device_vector<Primitive> dv_in(dev_primitives, dev_primitives + totalNumPrimitives);
@@ -1507,8 +1685,12 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 
 		thrust::copy(thrust::device, result.begin(), result.end(), cullingPassedPrimitives);
 		cullingPassedNumPrimitives = result.size();
-	}
 
+		if (cullingPassedNumPrimitives < 1)
+			cullingPassedNumPrimitives = 1;
+	}
+#else
+	cudaMemcpy(cullingPassedPrimitives, dev_primitives, totalNumPrimitives * sizeof(Primitive), cudaMemcpyDeviceToDevice);
 #endif
 
 
@@ -1516,11 +1698,6 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 
 	cudaMemset(dev_fragmentBuffer, 0, width*SSAA * height*SSAA * sizeof(Fragment));
 	initDepth << < blockCount2d, blockSize2d >> >(width*SSAA, height*SSAA, dev_depth);
-
-#elif MSAA > 1
-
-	cudaMemset(dev_fragmentBuffer, 0, width * height * sizeof(Fragment));
-	initDepth << < blockCount2d, blockSize2d >> >(width, height, dev_depth);
 
 #else
 
@@ -1532,32 +1709,27 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 	
 	// TODO: rasterize
 	{
-		dim3 numThreadsPerBlock(128);
+		dim3 numThreadsPerBlock(cullingPassedNumPrimitives < 128 ? cullingPassedNumPrimitives : 128);
 		dim3 numBlocksForPrimitives((cullingPassedNumPrimitives + numThreadsPerBlock.x - 1) / numThreadsPerBlock.x);
 
 #if SSAA > 1
 
-		_rasterizer <<< numBlocksForPrimitives, numThreadsPerBlock >> > (cullingPassedNumPrimitives, width*SSAA, height*SSAA, cullingPassedPrimitives, dev_fragmentBuffer, dev_depth, MV);
-
-#elif MSAA > 1
-
-		_rasterizer <<< numBlocksForPrimitives, numThreadsPerBlock >>> (cullingPassedNumPrimitives, width, height, cullingPassedPrimitives, dev_fragmentBuffer, dev_depth, MV);
+		_rasterizer <<< numBlocksForPrimitives, numThreadsPerBlock >> > (cullingPassedNumPrimitives, width*SSAA, height*SSAA, cullingPassedPrimitives, dev_fragmentBuffer, dev_depth, MV, mutex);
 
 #else
 
-		_rasterizer <<< numBlocksForPrimitives, numThreadsPerBlock >>> (cullingPassedNumPrimitives, width, height, cullingPassedPrimitives, dev_fragmentBuffer, dev_depth, MV);
+		_rasterizer <<< numBlocksForPrimitives, numThreadsPerBlock >>> (cullingPassedNumPrimitives, width, height, cullingPassedPrimitives, dev_fragmentBuffer, dev_depth, MV, mutex);
 
 #endif
 
 		
 	}
-
-
     // Copy depthbuffer colors into framebuffer
-
 #if SSAA > 1
 	
 	render <<<blockCount2d, blockSize2d >>> (width*SSAA, height*SSAA, dev_fragmentBuffer, dev_prevframebuffer);
+
+	checkCUDAError("fragment shader");
 
 	const dim3 blocksPerResultGrid2d(
 		(width + blockSize2d.x - 1) / blockSize2d.x,
@@ -1565,17 +1737,44 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 
 	averageColor <<<blocksPerResultGrid2d, blockSize2d >>> (glm::ivec2(width, height), dev_prevframebuffer, dev_framebuffer);
 
-#elif MSAA > 1
-
-	render << <blockCount2d, blockSize2d >> >(width, height, dev_fragmentBuffer, dev_prevframebuffer);
+	checkCUDAError("averageColor");
 
 #else
 
 	render << <blockCount2d, blockSize2d >> >(width, height, dev_fragmentBuffer, dev_framebuffer);
 
-#endif
-	
 	checkCUDAError("fragment shader");
+
+#endif
+
+
+	//PostProcessing
+
+#if BLOOM
+
+	//Bloom
+	HDR <<<blockCount2d, blockSize2d >> >(width, height, dev_framebuffer, renderTargetBuffer0);
+	
+	dim3 blocksPerResultGrid1d0(height);
+	HorizonBlur <<<blocksPerResultGrid1d0, width, width * sizeof(glm::vec3) >>> (width, renderTargetBuffer0, renderTargetBuffer1);
+
+	dim3 blocksPerResultGrid1d1(width);
+	VerticalBlur << <blocksPerResultGrid1d1, height, height * sizeof(glm::vec3) >> > (width, height, renderTargetBuffer1, renderTargetBuffer0);
+
+	HorizonBlur << <blocksPerResultGrid1d0, width, width * sizeof(glm::vec3) >> > (width, renderTargetBuffer0, renderTargetBuffer1);
+	VerticalBlur << <blocksPerResultGrid1d1, height, height * sizeof(glm::vec3) >> > (width, height, renderTargetBuffer1, renderTargetBuffer0);
+
+	HorizonBlur << <blocksPerResultGrid1d0, width, width * sizeof(glm::vec3) >> > (width, renderTargetBuffer0, renderTargetBuffer1);
+	VerticalBlur << <blocksPerResultGrid1d1, height, height * sizeof(glm::vec3) >> > (width, height, renderTargetBuffer1, renderTargetBuffer0);
+
+	HorizonBlur << <blocksPerResultGrid1d0, width, width * sizeof(glm::vec3) >> > (width, renderTargetBuffer0, renderTargetBuffer1);
+	VerticalBlur << <blocksPerResultGrid1d1, height, height * sizeof(glm::vec3) >> > (width, height, renderTargetBuffer1, renderTargetBuffer0);
+		
+	//Blend
+	BlendAdd << <blockCount2d, blockSize2d >> >(width, height, renderTargetBuffer0, dev_framebuffer);
+	
+#endif
+
     // Copy framebuffer into OpenGL buffer for OpenGL previewing
     sendImageToPBO<<<blockCount2d, blockSize2d>>>(pbo, width, height, dev_framebuffer);
     checkCUDAError("copy render result to pbo");
@@ -1630,6 +1829,15 @@ void rasterizeFree() {
 
 	cudaFree(cullingPassedPrimitives);
 	cullingPassedPrimitives = NULL;
+
+	cudaFree(mutex);
+	mutex = NULL;
+
+	cudaFree(renderTargetBuffer0);
+	renderTargetBuffer0 = NULL;
+
+	cudaFree(renderTargetBuffer1);
+	renderTargetBuffer1 = NULL;
 
     checkCUDAError("rasterize Free");
 }

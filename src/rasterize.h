@@ -14,15 +14,20 @@
 
 #define BACKFACE_CULLING 1
 #define PERSPECTIVE_CORRECTION 1
+#define USING_MUTEX 1
+
 
 #define SSAA 0
-#define MSAA 0
 
 #define BLINNPHONG 0
 #define PBS 1
 
+#define BLOOM 1
+
 #define DEBUG_DEPTH 0
 #define DEBUG_NORMAL 0
+#define DEBUG_ROUGHNESS 0
+#define DEBUG_METALLIC 0
 #define DEBUG_UV 0
 #define DEBUG_ENV 0
 

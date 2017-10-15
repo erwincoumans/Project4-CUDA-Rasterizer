@@ -242,9 +242,22 @@ float getPerspectiveCorrectedZAtCoordinate(const glm::vec3 barycentricCoord, con
 }
 
 __host__ __device__ static
+glm::vec3 getVertexColorAtCoordinate(const glm::vec3 barycentricCoord, const glm::vec3 VertexColor[3])
+{
+	return barycentricCoord.x * VertexColor[0] + barycentricCoord.y * VertexColor[1] + barycentricCoord.z * VertexColor[2];
+}
+
+__host__ __device__ static
 glm::vec3 getPerspectiveCorrectedVertexColorAtCoordinate(const glm::vec3 barycentricCoord, const glm::vec3 tri[3], const glm::vec3 VertexColor[3], float InterpolZ)
 {
 	return InterpolZ * (VertexColor[0] * barycentricCoord.x / tri[0].z + VertexColor[1] * barycentricCoord.y / tri[1].z + VertexColor[2] * barycentricCoord.z / tri[2].z);
+}
+
+
+__host__ __device__ static
+glm::vec3 getNormalColorAtCoordinate(const glm::vec3 barycentricCoord, const glm::vec3 triNormals[3])
+{
+	return glm::normalize(barycentricCoord.x * triNormals[0] + barycentricCoord.y * triNormals[1] + barycentricCoord.z * triNormals[2]);
 }
 
 __host__ __device__ static
@@ -254,6 +267,12 @@ glm::vec3 getPerspectiveCorrectedNormalAtCoordinate(const glm::vec3 barycentricC
 		barycentricCoord.x * triNormals[0] / tri[0].z +
 		barycentricCoord.y * triNormals[1] / tri[1].z +
 		barycentricCoord.z * triNormals[2] / tri[2].z));
+}
+
+__host__ __device__ static
+glm::vec4 getColorAtCoordinate(const glm::vec3 barycentricCoord, const glm::vec4 triColors[3])
+{
+	return barycentricCoord.x * triColors[0] + barycentricCoord.y * triColors[1] + barycentricCoord.z * triColors[2];
 }
 
 __host__ __device__ static
@@ -475,30 +494,7 @@ glm::vec3 getEnvTextColor(int width, int height, glm::vec3 w, const unsigned cha
 	return getTextColor(width, height, st, imageData);
 }
 
-__device__ static float fatomicMin(float *addr, float value)
-{
-	float old = *addr, assumed;
-	if (old <= value) return old;
-	
-	do
-	{
-		assumed = old;
-		old = atomicCAS((unsigned int*)addr, __float_as_int(assumed), __float_as_int(fminf(value, assumed)));
-	}
-	while (old != assumed);
-
-	return old;
-}
 
 
-__device__ static float fatomicMin2(float* address, float val)
-{
-	int* address_as_i = (int*)address;
-	volatile int old = *address_as_i, assumed;
-	do {
-		assumed = old;
-		old = ::atomicCAS(address_as_i, assumed, __float_as_int(::fminf(val, __int_as_float(assumed))));
-	} while (assumed != old);
-	return __int_as_float(old);
-}
+
 

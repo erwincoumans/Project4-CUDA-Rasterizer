@@ -236,10 +236,6 @@
         "Image0001": {
             "name": "Image0001",
             "uri": "CesiumMilkTruck.png"
-        },
-        "Image0002": {
-            "name": "Image0002",
-            "uri": "duck_normal.png"
         }
     },
     "materials": {
@@ -274,7 +270,7 @@
                     0.04,
                     1
                 ]
-                ,"normal": "texture_Image0002"
+                
             }
         },
         "Effect-wheels": {
@@ -289,7 +285,7 @@
                     0.04,
                     1
                 ]
-                ,"normal": "texture_Image0002"
+                
             }
         },
         "Effect-window_trim": {
@@ -309,7 +305,7 @@
                     0.04,
                     1
                 ]
-                ,"normal": "texture_Image0002"
+                
             }
         }
     },
@@ -705,14 +701,6 @@
             "internalFormat": 6408,
             "sampler": "sampler_0",
             "source": "Image0001",
-            "target": 3553,
-            "type": 5121
-        },
-        "texture_Image0002": {
-            "format": 6408,
-            "internalFormat": 6408,
-            "sampler": "sampler_0",
-            "source": "Image0002",
             "target": 3553,
             "type": 5121
         }

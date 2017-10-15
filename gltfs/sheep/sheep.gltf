@@ -1,0 +1,334 @@
+{
+    "accessors": {
+        "accessors_accessor_buffer_sheep.001_0": {
+            "bufferView": "bufferViews_bufferView_buffer_sheep.001_0",
+            "byteOffset": 0,
+            "byteStride": 32,
+            "componentType": 5126,
+            "count": 2941,
+            "max": [
+                0.6067990064620972,
+                3.119749069213867,
+                2.514055013656616
+            ],
+            "min": [
+                -0.7010790109634399,
+                -0.0011249999515712261,
+                -1.4238640069961548
+            ],
+            "name": "accessor_buffer_sheep.001_0",
+            "type": "VEC3"
+        },
+        "accessors_accessor_buffer_sheep.001_1": {
+            "bufferView": "bufferViews_bufferView_buffer_sheep.001_0",
+            "byteOffset": 12,
+            "byteStride": 32,
+            "componentType": 5126,
+            "count": 2941,
+            "max": [
+                0.998537003993988,
+                0.9999682903289795,
+                0.9993252158164978
+            ],
+            "min": [
+                -0.9992333650588989,
+                -0.9999819397926331,
+                -0.9998436570167542
+            ],
+            "name": "accessor_buffer_sheep.001_1",
+            "type": "VEC3"
+        },
+        "accessors_accessor_buffer_sheep.001_2": {
+            "bufferView": "bufferViews_bufferView_buffer_sheep.001_0",
+            "byteOffset": 24,
+            "byteStride": 32,
+            "componentType": 5126,
+            "count": 2941,
+            "max": [
+                0.990319013595581,
+                0.9926680000498891
+            ],
+            "min": [
+                0.009227000176906586,
+                0.03886699676513672
+            ],
+            "name": "accessor_buffer_sheep.001_2",
+            "type": "VEC2"
+        },
+        "accessors_accessor_buffer_sheep.001_3": {
+            "bufferView": "bufferViews_bufferView_buffer_sheep.001_1",
+            "byteOffset": 0,
+            "byteStride": 2,
+            "componentType": 5123,
+            "count": 15576,
+            "max": [
+                2940
+            ],
+            "min": [
+                0
+            ],
+            "name": "accessor_buffer_sheep.001_3",
+            "type": "SCALAR"
+        }
+    },
+    "asset": {
+        "profile": {
+            "api": "WebGL",
+            "version": "1.0"
+        },
+        "version": "1.0"
+    },
+    "bufferViews": {
+        "bufferViews_bufferView_buffer_sheep.001_0": {
+            "buffer": "buffers_buffer_combined",
+            "byteLength": 94112,
+            "byteOffset": 0,
+            "name": "bufferView_buffer_sheep.001_0",
+            "target": 34962
+        },
+        "bufferViews_bufferView_buffer_sheep.001_1": {
+            "buffer": "buffers_buffer_combined",
+            "byteLength": 31152,
+            "byteOffset": 94112,
+            "name": "bufferView_buffer_sheep.001_1",
+            "target": 34963
+        }
+    },
+    "buffers": {
+        "buffers_buffer_combined": {
+            "byteLength": 125264,
+            "name": "buffer_combined",
+            "type": "arraybuffer",
+            "uri": "buffer_combined.bin"
+        }
+    },
+    "glExtensionsUsed": [],
+    "images":
+     {
+        "file0": {
+            "name": "file0",
+            "uri": "SheepD.png"
+        },
+        "file1": {
+            "name": "file1",
+            "uri": "SheepB.png"
+        },
+        "file2": {
+            "name": "file2",
+            "uri": "SheepE.png"
+        }
+    },
+    "materials": {
+        "materials_initialShadingGroup": {
+            "name": "initialShadingGroup",
+            "technique": "techniques_initialShadingGroup",
+            "values": {
+                "emission": "texture_file2",
+                "diffuse": "texture_file0",
+                "normal": "texture_file1"
+            }
+        }
+    },
+    "meshes": {
+        "meshes_sheep.001": {
+            "name": "sheep.001",
+            "primitives": [
+                {
+                    "attributes": {
+                        "NORMAL": "accessors_accessor_buffer_sheep.001_1",
+                        "POSITION": "accessors_accessor_buffer_sheep.001_0",
+                        "TEXCOORD_0": "accessors_accessor_buffer_sheep.001_2"
+                    },
+                    "indices": "accessors_accessor_buffer_sheep.001_3",
+                    "material": "materials_initialShadingGroup",
+                    "mode": 4
+                }
+            ]
+        }
+    },
+    "nodes": {
+        "nodes_Scene_root": {
+            "children": [
+                "nodes_sheep.001"
+            ],
+            "matrix": [
+                1.0,                0.0,                0.0,                0.0,
+                0.0,                1.0,                0.0,                0.0,
+                0.0,                0.0,                1.0,                0.0,
+                0.0,                0.0,                0.0,                1.0
+            ],
+            "name": "Scene_root"
+        },
+        "nodes_sheep.001": {
+            "meshes": [
+                "meshes_sheep.001"
+            ],
+            "name": "sheep.001",
+            "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "translation": [
+                0.0,
+                -1.0,
+                0.0
+            ]
+        }
+    },
+    "programs": {
+        "programs_initialShadingGroup": {
+            "attributes": [
+                "bl_Vertex",
+                "bl_Normal"
+            ],
+            "fragmentShader": "shaders_initialShadingGroupFS",
+            "name": "initialShadingGroup",
+            "vertexShader": "shaders_initialShadingGroupVS"
+        }
+    },
+    "samplers": {
+        "samplers_default": {
+            "name": "default"
+        }
+    },
+    "scene": "scenes_Scene",
+    "scenes": {
+        "scenes_Scene": {
+            "extras": {
+                "active_camera": null,
+                "background_color": [
+                    0.05087608844041824,
+                    0.05087608844041824,
+                    0.05087608844041824
+                ],
+                "frames_per_second": 24
+            },
+            "name": "Scene",
+            "nodes": [
+                "nodes_Scene_root",
+                 "nodes_sheep.001"
+            ]
+        }
+    },    
+    "textures": {
+        "texture_file0": {
+            "format": 6408,
+            "internalFormat": 6408,
+            "sampler": "sampler_0",
+            "source": "file0",
+            "target": 3553,
+            "type": 5121
+        },
+        "texture_file1": {
+            "format": 6408,
+            "internalFormat": 6408,
+            "sampler": "sampler_0",
+            "source": "file1",
+            "target": 3553,
+            "type": 5121
+        },
+        "texture_file2": {
+            "format": 6408,
+            "internalFormat": 6408,
+            "sampler": "sampler_0",
+            "source": "file2",
+            "target": 3553,
+            "type": 5121
+        }
+     },
+    "shaders": {
+        "shaders_initialShadingGroupFS": {
+            "name": "initialShadingGroupFS",
+            "type": 35632,
+            "uri": "initialShadingGroupFS.glsl"
+        },
+        "shaders_initialShadingGroupVS": {
+            "name": "initialShadingGroupVS",
+            "type": 35633,
+            "uri": "initialShadingGroupVS.glsl"
+        }
+    },
+    "techniques": {
+        "techniques_initialShadingGroup": {
+            "attributes": {
+                "bl_Normal": "bl_Normal",
+                "bl_Vertex": "bl_Vertex"
+            },
+            "name": "initialShadingGroup",
+            "parameters": {
+                "bl_ModelViewMatrix": {
+                    "semantic": "MODELVIEW",
+                    "type": 35676
+                },
+                "bl_Normal": {
+                    "semantic": "NORMAL",
+                    "type": 35665
+                },
+                "bl_NormalMatrix": {
+                    "semantic": "MODELVIEWINVERSETRANSPOSE",
+                    "type": 35675
+                },
+                "bl_ProjectionMatrix": {
+                    "semantic": "PROJECTION",
+                    "type": 35676
+                },
+                "bl_Vertex": {
+                    "semantic": "POSITION",
+                    "type": 35666
+                },
+                "mist_color": {
+                    "type": 35666,
+                    "value": [
+                        0.05087608844041824,
+                        0.05087608844041824,
+                        0.05087608844041824
+                    ]
+                },
+                "mist_depth": {
+                    "type": 5126,
+                    "value": 25.0
+                },
+                "mist_falloff": {
+                    "type": 5126,
+                    "value": null
+                },
+                "mist_intensity": {
+                    "type": 5126,
+                    "value": null
+                },
+                "mist_start": {
+                    "type": 5126,
+                    "value": 5.0
+                },
+                "mist_use_mist": {
+                    "type": 5126,
+                    "value": null
+                },
+                "unf8": {
+                    "type": 35665,
+                    "value": null
+                }
+            },
+            "program": "programs_initialShadingGroup",
+            "uniforms": {
+                "bl_ModelViewMatrix": "bl_ModelViewMatrix",
+                "bl_NormalMatrix": "bl_NormalMatrix",
+                "bl_ProjectionMatrix": "bl_ProjectionMatrix",
+                "unf19": "mist_use_mist",
+                "unf20": "mist_start",
+                "unf21": "mist_depth",
+                "unf22": "mist_falloff",
+                "unf23": "mist_intensity",
+                "unf27": "mist_color",
+                "unf8": "unf8"
+            }
+        }
+    }
+}
