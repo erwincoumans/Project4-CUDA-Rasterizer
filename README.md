@@ -60,7 +60,7 @@ In this project,
 
 | Normal | Corrected | Bilinear | Comparision |
 | ----------- | ----------- | ----------- | ----------- |
-| ![](img/Checker.png) | ![](img/Correction.png) | ![](img/Bilinear.png) | ![](img/Checker.gif) |
+| ![](img/Checker.png) | ![](img/Correction.png) | ![](img/Bilinear.png) | ![](img/ERROR.gif) |
 
 
 #### Normal(Bump) mapping
