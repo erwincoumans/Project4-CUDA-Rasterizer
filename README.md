@@ -151,6 +151,20 @@ Finally, add fragments of bloom effect to original scene fragment through Blendi
 ### Performance Analysis
 
 
+
+
+#### Perspective correct texture coordinates
+
+
+![](img/Pipeline.png)
+
+|  Vertex Shader | Backface Culling | Rasterize | Fragment Shader |
+| ----------- | ----------- | ----------- | ----------- |
+| 354 | 1809 | 2598 | 2832 |
+
+
+
+
 #### Perspective correct texture coordinates
 
 ![](img/Perspective.png)

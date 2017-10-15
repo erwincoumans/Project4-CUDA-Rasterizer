@@ -19,6 +19,10 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#if DEBUG_TIME
+static int debug_counter = 0;
+#endif
+
 namespace {
 
 	typedef unsigned short VertexIndex;
@@ -1642,6 +1646,12 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 
 	// Execute your rasterization pipeline here
 	// (See README for rasterization pipeline outline.)
+#if DEBUG_TIME
+
+	std::chrono::microseconds newTimeEplase = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::system_clock::now().time_since_epoch());
+	std::chrono::microseconds TimeEplase = newTimeEplase;
+
+#endif
 
 	// Vertex Process & primitive assembly
 	{
@@ -1677,7 +1687,18 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 
 		checkCUDAError("Vertex Processing and Primitive Assembly");
 	}
+
+#if DEBUG_TIME
+	if (debug_counter == 0)
+	{
+		newTimeEplase = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::system_clock::now().time_since_epoch());
+		std::cout << "Vertex Processing and Primitive Assembly : " << newTimeEplase.count() - TimeEplase.count() << std::endl;
+		std::chrono::microseconds TimeEplase = newTimeEplase;
+
+	}
 	
+#endif
+
 	int cullingPassedNumPrimitives = totalNumPrimitives;
 	thrust::device_vector<Primitive> result;
 
@@ -1698,6 +1719,15 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 	}
 #else
 	cudaMemcpy(cullingPassedPrimitives, dev_primitives, totalNumPrimitives * sizeof(Primitive), cudaMemcpyDeviceToDevice);
+#endif
+
+#if DEBUG_TIME
+	if (debug_counter == 0)
+	{
+		newTimeEplase = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::system_clock::now().time_since_epoch());
+		std::cout << "BACKFACE_CULLING : "<< newTimeEplase.count() - TimeEplase.count() << std::endl;
+		std::chrono::microseconds TimeEplase = newTimeEplase;
+	}
 #endif
 
 
@@ -1729,6 +1759,14 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 
 #endif
 
+#if DEBUG_TIME
+	if (debug_counter == 0)
+	{
+		newTimeEplase = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::system_clock::now().time_since_epoch());
+		std::cout << "Rasterizer : " << newTimeEplase.count() - TimeEplase.count() << std::endl;
+		std::chrono::microseconds TimeEplase = newTimeEplase;
+	}
+#endif
 		
 	}
     // Copy depthbuffer colors into framebuffer
@@ -1754,6 +1792,17 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 
 #endif
 
+#if DEBUG_TIME
+
+	if (debug_counter == 0)
+	{
+		newTimeEplase = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::system_clock::now().time_since_epoch());
+		std::cout << "Fragment shader : " << newTimeEplase.count() - TimeEplase.count() << std::endl;
+		std::chrono::microseconds TimeEplase = newTimeEplase;
+		debug_counter++;
+	}
+
+#endif
 
 	//PostProcessing
 
@@ -1781,6 +1830,21 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 	BlendAdd << <blockCount2d, blockSize2d >> >(width, height, renderTargetBuffer0, dev_framebuffer);
 	
 #endif
+
+/*
+#if DEBUG_TIME
+
+	if (debug_counter == 0)
+	{
+		newTimeEplase = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::system_clock::now().time_since_epoch());
+		std::cout << "PostProcess : " << newTimeEplase.count() - TimeEplase.count() << std::endl;
+		std::chrono::microseconds TimeEplase = newTimeEplase;
+
+		debug_counter++;
+	}
+	
+#endif
+*/
 
     // Copy framebuffer into OpenGL buffer for OpenGL previewing
     sendImageToPBO<<<blockCount2d, blockSize2d>>>(pbo, width, height, dev_framebuffer);

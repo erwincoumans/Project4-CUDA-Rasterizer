@@ -32,6 +32,8 @@
 #define DEBUG_UV 0
 #define DEBUG_ENV 0
 
+#define DEBUG_TIME 0
+
 #define LightSize 3
 
 #include <glm/glm.hpp>
@@ -42,6 +44,8 @@
 #include <thrust/execution_policy.h>
 #include <thrust/device_vector.h>
 #include <thrust/device_ptr.h>
+#include <chrono>
+#include <ctime>
 
 namespace tinygltf{
 	class Scene;

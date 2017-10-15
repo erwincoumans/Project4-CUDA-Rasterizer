@@ -12,7 +12,7 @@
 #include <GLFW/glfw3.h>
 
 #include <cstdlib>
-#include <ctime>
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -22,7 +22,7 @@
 #include <glm/glm.hpp>
 #include <util/glslUtility.hpp>
 #include <util/utilityCore.hpp>
-#include <chrono>
+
 #include "rasterize.h"
 
 using namespace std;
