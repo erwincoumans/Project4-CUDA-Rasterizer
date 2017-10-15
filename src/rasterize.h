@@ -13,6 +13,7 @@
 #define FARPLANE 1000.0f
 
 #define BACKFACE_CULLING 1
+#define BACKFACE_CULLING_THRUST 0
 #define PERSPECTIVE_CORRECTION 1
 #define USING_MUTEX 1
 
@@ -29,7 +30,7 @@
 #define DEBUG_ROUGHNESS 0
 #define DEBUG_METALLIC 0
 #define DEBUG_UV 0
-#define DEBUG_ENV 1
+#define DEBUG_ENV 0
 
 #define LightSize 3
 

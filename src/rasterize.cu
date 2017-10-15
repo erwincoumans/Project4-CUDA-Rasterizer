@@ -268,7 +268,7 @@ __global__ void BlendAdd(int w, int h, glm::vec3 *renderTargetbufferSrc, glm::ve
 	}
 }
 
-__global__ void BlendA(int w, int h, glm::vec3 *renderTargetbufferSrc, glm::vec3 *renderTargetbufferDst, float a)
+__global__ void Blend(int w, int h, glm::vec3 *renderTargetbufferSrc, glm::vec3 *renderTargetbufferDst, float a)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -1401,7 +1401,14 @@ __global__ void _rasterizer(int numPrimitives, int width, int height, Primitive*
 	Vertices[1] = glm::vec3(primitive.v[1].pos);
 	Vertices[2] = glm::vec3(primitive.v[2].pos);
 
+#if BACKFACE_CULLING
 
+	float result = (projVertices[1][0] - projVertices[0][0])*(projVertices[2][1] - projVertices[0][1]) - (projVertices[1][1] - projVertices[0][1])*(projVertices[2][0] - projVertices[0][0]);
+
+	if (result < 0.0f)
+		return;
+
+#endif
 	
 	//Create AABoundingBox
 	AABB boundingBox;
@@ -1674,7 +1681,7 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 	int cullingPassedNumPrimitives = totalNumPrimitives;
 	thrust::device_vector<Primitive> result;
 
-#if BACKFACE_CULLING
+#if BACKFACE_CULLING_THRUST
 
 	{		
 		thrust::device_vector<Primitive> dv_in(dev_primitives, dev_primitives + totalNumPrimitives);
