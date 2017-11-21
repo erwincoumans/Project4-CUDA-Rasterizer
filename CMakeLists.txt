@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
-project(cis565_rasterizer)
+project(cis565_rasterizer LANGUAGES CXX CUDA)
+
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
@@ -48,9 +49,9 @@ set(CUDA_PROPAGATE_HOST_FLAGS OFF)
 set(CMAKE_CXX_FLAGS_DEBUG                 "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO        "-O2 -g")
 set(CMAKE_CXX_FLAGS_RELEASE               "-O3    -DNDEBUG")
-list(APPEND CUDA_NVCC_FLAGS_DEBUG          -O0 -g -G)
-list(APPEND CUDA_NVCC_FLAGS_RELWITHDEBINFO -O2 -g -lineinfo)
-list(APPEND CUDA_NVCC_FLAGS_RELEASE        -O3    -DNDEBUG)
+#list(APPEND CUDA_NVCC_FLAGS_DEBUG          -O0 -g -G)
+#list(APPEND CUDA_NVCC_FLAGS_RELWITHDEBINFO -O2 -g -lineinfo)
+#list(APPEND CUDA_NVCC_FLAGS_RELEASE        -O3    -DNDEBUG)
 if (WIN32)
     set(CUDA_PROPAGATE_HOST_FLAGS ON)
     set(CMAKE_CXX_FLAGS                       "/MD /EHsc /D _CRT_SECURE_NO_WARNINGS")
@@ -76,8 +77,8 @@ if (WIN32)
 endif()
 
 # CUDA linker options
-find_package(Threads REQUIRED)
-find_package(CUDA 8.0 REQUIRED)
+#find_package(Threads REQUIRED)
+#find_package(CUDA 8.0 REQUIRED)
 set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE ON)
 set(CUDA_SEPARABLE_COMPILATION ON)
 
@@ -85,10 +86,12 @@ set(CUDA_SEPARABLE_COMPILATION ON)
 add_subdirectory(src)
 add_subdirectory(util)
 
-cuda_add_executable(${CMAKE_PROJECT_NAME}
+add_executable(${CMAKE_PROJECT_NAME}
     "src/main.hpp"
     "src/main.cpp"
     )
+
+target_compile_features(${CMAKE_PROJECT_NAME} PUBLIC cxx_std_11)
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
     src
